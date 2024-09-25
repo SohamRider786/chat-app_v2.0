@@ -45,27 +45,49 @@ function SidebarChat({ id, name,image, addNewChat }) {
         unsubscribe(); // Unsubscribe from the messages collection when the component unmounts
       };
     }
-  }, [id]);
+  }, []);
 
   const createChat = async () => {
-    const chatEmail = prompt('Please enter person email:');
+    const chatEmail = prompt('Please enter the person’s email:');
     if (chatEmail) {
       const exists = await userExists(chatEmail);
+  
       if (exists) {
-        // Use the then callback to ensure setChatImg completes before proceeding
-          db.collection('userchats').doc(id).set({
-            to_email: chatEmail,
-            from_email: user.email,
-            from_img: user.photoURL,
-            to_img: chatImg , 
-          });
-          console.log("the other chatimg is>>>",chatImg);
-          navigate(`/`);
+        // Check if the chat with this user already exists in 'userchats'
+        const existingChatSnapshot = await db
+          .collection('userchats')
+          .where('from_email', '==', user.email)
+          .where('to_email', '==', chatEmail)
+          .get();
+  
+        // Also check the inverse to avoid duplicate chats in either direction
+        const inverseChatSnapshot = await db
+          .collection('userchats')
+          .where('from_email', '==', chatEmail)
+          .where('to_email', '==', user.email)
+          .get();
+  
+        if (!existingChatSnapshot.empty || !inverseChatSnapshot.empty) {
+          // Chat with this user already exists
+          window.alert('Chat with this user already exists.');
+          return;
+        }
+  
+        // Proceed to create the chat if no existing chat is found
+        await db.collection('userchats').add({
+          to_email: chatEmail,
+          from_email: user.email,
+          from_img: user.photoURL,
+          to_img: chatImg,
+        });
+        console.log('Chat created with image:', chatImg);
+        navigate(`/`);
       } else {
-        window.alert('No user with this Email exists or the username is already in your existing chats');
+        window.alert('No user with this email exists or the username is already in your existing chats.');
       }
     }
   };
+  
 
   return !addNewChat ? (
     <Link to={`/chats/${id}`}>
